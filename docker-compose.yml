@@ -1,0 +1,97 @@
+version: "3.7"
+
+services:
+    # image project
+    app:
+        container_name: oms-notifications
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: oms-notifications
+        restart: unless-stopped
+        working_dir: /var/www/
+        volumes:
+            - ./:/var/www
+        depends_on: 
+            - redis
+        networks: 
+            - laravel-9
+    
+    # nginx
+    nginx:
+        container_name: oms-notifications-nginx
+        image: nginx:alpine
+        restart: unless-stopped
+        ports: 
+            - "8000:80"
+        volumes: 
+            - ./:/var/www
+            - ./docker/nginx/:/etc/nginx/conf.d/
+        networks: 
+            - laravel-9
+
+    # db mysql
+    mysql:
+        container_name: oms-notifications-mysql
+        image: mysql:8
+        restart: unless-stopped
+        environment: 
+            MYSQL_DATABASE: ${DB_DATABASE}
+            MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+            MYSQL_PASSWORD: ${DB_PASSWORD}
+            MYSQL_USER: ${DB_USERNAME}
+        volumes: 
+            - ./.docker/mysql/dbdata:/var/lib/mysql
+        ports: 
+            - "3388:3306"
+        networks: 
+            - laravel-9
+
+     # queue
+    queue:
+        container_name: oms-notifications-queue
+        image: oms-notifications
+        restart: unless-stopped
+        command: "php artisan queue:work"
+        volumes: 
+            - ./:/var/www
+        depends_on: 
+            - redis
+            - app
+        networks: 
+            - laravel-9
+
+    # redis
+    redis:
+        container_name: oms-notifications-redis
+        image: redis:latest
+        networks: 
+            - laravel-9
+    
+    # zookeeper
+    zookeeper:
+        container_name: oms-notifications-zookeeper
+        image: 'bitnami/zookeeper:latest'
+        ports:
+            - '2181:2181'
+        environment:
+            - ALLOW_ANONYMOUS_LOGIN=yes
+
+    # kafka
+    kafka:
+        container_name: oms-notifications-kafka
+        image: 'bitnami/kafka:latest'
+        ports:
+            - '9092:9092'
+        environment:
+            - KAFKA_BROKER_ID=1
+            - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092
+            - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://127.0.0.1:9092
+            - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+            - ALLOW_PLAINTEXT_LISTENER=yes
+        depends_on:
+            - zookeeper
+
+networks: 
+    laravel-9:
+        driver: bridge
