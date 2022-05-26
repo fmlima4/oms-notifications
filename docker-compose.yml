@@ -46,8 +46,22 @@ services:
             - "3388:3306"
         networks: 
             - laravel-9
+        healthcheck:
+          test: ["CMD", "mysqladmin", "ping", "-p${DB_PASSWORD}"]
+          retries: 3
+          timeout: 5s
 
-     # queue
+    # redis
+    redis:
+        container_name: oms-notifications-redis
+        image: redis:latest
+        restart: always
+        ports:
+            - '6379:6379'
+        networks: 
+            - laravel-9
+    
+    # queue
     queue:
         container_name: oms-notifications-queue
         image: oms-notifications
@@ -58,13 +72,6 @@ services:
         depends_on: 
             - redis
             - app
-        networks: 
-            - laravel-9
-
-    # redis
-    redis:
-        container_name: oms-notifications-redis
-        image: redis:latest
         networks: 
             - laravel-9
     
